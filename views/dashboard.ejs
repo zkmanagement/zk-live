@@ -639,6 +639,17 @@
                     </label>
                   </div>
 
+                  <div class="h-[42px] flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <label class="text-sm text-gray-300">Unlist live replay once stream ends</label>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" id="ytUnlistReplay" class="sr-only peer">
+                      <div class="w-11 h-6 bg-dark-700 rounded-full peer peer-checked:bg-primary"></div>
+                      <div class="absolute left-[2px] top-[2px] w-5 h-5 bg-white rounded-full transition-all peer-checked:translate-x-5"></div>
+                    </label>
+                  </div>
+
                   <div id="ytScheduleSettings" class="hidden space-y-4">
                     <div>
                       <label class="text-xs text-gray-400 block mb-1">Start Time</label>
@@ -1092,6 +1103,17 @@
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" id="editYtEnableMonetization" class="sr-only peer">
+                      <div class="w-11 h-6 bg-dark-700 rounded-full peer peer-checked:bg-primary"></div>
+                      <div class="absolute left-[2px] top-[2px] w-5 h-5 bg-white rounded-full transition-all peer-checked:translate-x-5"></div>
+                    </label>
+                  </div>
+
+                  <div class="h-[42px] flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <label class="text-sm text-gray-300">Unlist live replay once stream ends</label>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" id="editYtUnlistReplay" class="sr-only peer">
                       <div class="w-11 h-6 bg-dark-700 rounded-full peer peer-checked:bg-primary"></div>
                       <div class="absolute left-[2px] top-[2px] w-5 h-5 bg-white rounded-full transition-all peer-checked:translate-x-5"></div>
                     </label>
@@ -1642,6 +1664,7 @@
         }
 
         ytFormData.ytMonetization = document.getElementById('ytEnableMonetization').checked;
+        ytFormData.youtubeUnlistReplay = document.getElementById('ytUnlistReplay').checked;
         
         const createBtn = document.querySelector('#newStreamModal button[type="submit"]');
         const originalBtnText = createBtn.innerHTML;
@@ -3198,6 +3221,7 @@
         renderEditYtTags();
 
         document.getElementById('editYtEnableMonetization').checked = stream.youtube_monetization === true || stream.youtube_monetization === 1;
+        document.getElementById('editYtUnlistReplay').checked = stream.youtube_unlist_replay === true || stream.youtube_unlist_replay === 1;
 
         if (stream.video_id) {
           document.getElementById('editYtSelectedVideoId').value = stream.video_id;

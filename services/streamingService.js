@@ -644,6 +644,10 @@ async function stopStream(streamId) {
       if (stream.is_youtube_api && stream.youtube_broadcast_id) {
         try {
           const youtubeService = require('./youtubeService');
+          if (stream.youtube_unlist_replay) {
+            const baseUrl = process.env.BASE_URL || 'http://localhost:7575';
+            await youtubeService.unlistYouTubeBroadcast(streamId, baseUrl);
+          }
           await youtubeService.deleteYouTubeBroadcast(streamId);
         } catch (e) {}
       }

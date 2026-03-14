@@ -377,6 +377,7 @@ async function startRotationStream(rotation, item) {
       youtube_category: item.category,
       youtube_tags: item.tags,
       youtube_monetization: monetizationEnabled,
+      youtube_unlist_replay: item.youtube_unlist_replay === true,
       youtube_channel_id: selectedChannel.id,
       is_youtube_api: true,
       schedule_time: rotation.start_time,
@@ -431,24 +432,28 @@ async function stopRotationStream(rotation, item) {
           }
 
           if (selectedChannel && selectedChannel.access_token) {
-            const oauth2Client = new google.auth.OAuth2(
-              user.youtube_client_id,
-              decrypt(user.youtube_client_secret),
-              getRedirectUri(user)
-            );
+            // Only manually complete the broadcast if unlist replay is NOT active
+            // (unlistYouTubeBroadcast handles the completion + privacy update when active)
+            if (!rotationStream.youtube_unlist_replay) {
+              const oauth2Client = new google.auth.OAuth2(
+                user.youtube_client_id,
+                decrypt(user.youtube_client_secret),
+                getRedirectUri(user)
+              );
 
-            oauth2Client.setCredentials({
-              access_token: decrypt(selectedChannel.access_token),
-              refresh_token: decrypt(selectedChannel.refresh_token)
-            });
+              oauth2Client.setCredentials({
+                access_token: decrypt(selectedChannel.access_token),
+                refresh_token: decrypt(selectedChannel.refresh_token)
+              });
 
-            const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+              const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
 
-            await youtube.liveBroadcasts.transition({
-              part: ['status'],
-              id: rotationStream.youtube_broadcast_id,
-              broadcastStatus: 'complete'
-            });
+              await youtube.liveBroadcasts.transition({
+                part: ['status'],
+                id: rotationStream.youtube_broadcast_id,
+                broadcastStatus: 'complete'
+              });
+            }
           }
         } catch (ytError) {
           console.error('[RotationService] Error completing YouTube broadcast:', ytError.message);

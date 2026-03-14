@@ -5,6 +5,7 @@ class Rotation {
   static normalizeRotationItem(row) {
     if (!row) return row;
     row.youtube_monetization = row.youtube_monetization === 1;
+    row.youtube_unlist_replay = row.youtube_unlist_replay === 1;
     return row;
   }
 
@@ -199,14 +200,15 @@ class Rotation {
       original_thumbnail_path = null,
       privacy = 'unlisted',
       category = '22',
-      youtube_monetization = false
+      youtube_monetization = false,
+      youtube_unlist_replay = false
     } = itemData;
 
     return new Promise((resolve, reject) => {
       db.run(
-        `INSERT INTO rotation_items (id, rotation_id, order_index, video_id, title, description, tags, thumbnail_path, original_thumbnail_path, privacy, category, youtube_monetization)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, rotation_id, order_index, video_id, title, description, tags, thumbnail_path, original_thumbnail_path, privacy, category, youtube_monetization ? 1 : 0],
+        `INSERT INTO rotation_items (id, rotation_id, order_index, video_id, title, description, tags, thumbnail_path, original_thumbnail_path, privacy, category, youtube_monetization, youtube_unlist_replay)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, rotation_id, order_index, video_id, title, description, tags, thumbnail_path, original_thumbnail_path, privacy, category, youtube_monetization ? 1 : 0, youtube_unlist_replay ? 1 : 0],
         function(err) {
           if (err) {
             console.error('Error adding rotation item:', err.message);
@@ -224,7 +226,7 @@ class Rotation {
 
     Object.entries(itemData).forEach(([key, value]) => {
       fields.push(`${key} = ?`);
-      if (key === 'youtube_monetization' && typeof value === 'boolean') {
+      if ((key === 'youtube_monetization' || key === 'youtube_unlist_replay') && typeof value === 'boolean') {
         values.push(value ? 1 : 0);
       } else {
         values.push(value);

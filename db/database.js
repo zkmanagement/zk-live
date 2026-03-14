@@ -370,6 +370,18 @@ function createTables() {
         }
       });
 
+      db.run(`ALTER TABLE streams ADD COLUMN youtube_unlist_replay INTEGER DEFAULT 0`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error adding youtube_unlist_replay column to streams:', err.message);
+        }
+      });
+
+      db.run(`ALTER TABLE rotation_items ADD COLUMN youtube_unlist_replay INTEGER DEFAULT 0`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error adding youtube_unlist_replay column to rotation_items:', err.message);
+        }
+      });
+
       db.run(`ALTER TABLE users ADD COLUMN disk_limit INTEGER DEFAULT 0`, (err) => {
         if (err && !err.message.includes('duplicate column name')) {
           console.error('Error adding disk_limit column to users:', err.message);

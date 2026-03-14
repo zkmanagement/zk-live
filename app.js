@@ -3442,7 +3442,7 @@ app.post('/api/streams/youtube', isAuthenticated, uploadThumbnail.single('thumbn
         error: 'YouTube API credentials not configured.' 
       });
     }
-    const { videoId, title, description, privacy, category, tags, loopVideo, scheduleStartTime, scheduleEndTime, repeat, ytChannelId, ytMonetization } = req.body;
+    const { videoId, title, description, privacy, category, tags, loopVideo, scheduleStartTime, scheduleEndTime, repeat, ytChannelId, ytMonetization, youtubeUnlistReplay } = req.body;
     
     let selectedChannel;
     if (ytChannelId) {
@@ -3508,7 +3508,8 @@ app.post('/api/streams/youtube', isAuthenticated, uploadThumbnail.single('thumbn
       youtube_thumbnail: localThumbnailPath,
       youtube_channel_id: selectedChannel.id,
       is_youtube_api: true,
-      youtube_monetization: ytMonetization === 'true' || ytMonetization === true
+      youtube_monetization: ytMonetization === 'true' || ytMonetization === true,
+      youtube_unlist_replay: youtubeUnlistReplay === 'true' || youtubeUnlistReplay === true
     };
     
     if (scheduleStartTime) {
@@ -3627,6 +3628,9 @@ app.put('/api/streams/:id', isAuthenticated, uploadThumbnail.single('thumbnail')
       }
       if (req.body.ytMonetization !== undefined) {
         updateData.youtube_monetization = req.body.ytMonetization === 'true' || req.body.ytMonetization === true;
+      }
+      if (req.body.youtubeUnlistReplay !== undefined) {
+        updateData.youtube_unlist_replay = req.body.youtubeUnlistReplay === 'true' || req.body.youtubeUnlistReplay === true;
       }
       
       if (req.body.scheduleStartTime) {
@@ -4442,7 +4446,8 @@ app.post('/api/rotations', isAuthenticated, uploadThumbnail.any(), async (req, r
         original_thumbnail_path: originalThumbnailPath,
         privacy: item.privacy || 'unlisted',
         category: item.category || '22',
-        youtube_monetization: item.youtube_monetization === true || item.youtube_monetization === 'true'
+        youtube_monetization: item.youtube_monetization === true || item.youtube_monetization === 'true',
+        youtube_unlist_replay: item.youtube_unlist_replay === true || item.youtube_unlist_replay === 'true'
       });
     }
     
@@ -4518,7 +4523,8 @@ app.put('/api/rotations/:id', isAuthenticated, uploadThumbnail.any(), async (req
         original_thumbnail_path: originalThumbnailPath,
         privacy: item.privacy || 'unlisted',
         category: item.category || '22',
-        youtube_monetization: item.youtube_monetization === true || item.youtube_monetization === 'true'
+        youtube_monetization: item.youtube_monetization === true || item.youtube_monetization === 'true',
+        youtube_unlist_replay: item.youtube_unlist_replay === true || item.youtube_unlist_replay === 'true'
       });
     }
     

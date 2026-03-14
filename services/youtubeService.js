@@ -313,9 +313,90 @@ async function deleteYouTubeBroadcast(streamId) {
   }
 }
 
+async function unlistYouTubeBroadcast(streamId, baseUrl) {
+  const stream = await Stream.findById(streamId);
+  if (!stream || !stream.is_youtube_api || !stream.youtube_broadcast_id) {
+    return { success: true, message: 'No YouTube broadcast to unlist or not a YouTube API stream' };
+  }
+
+  const user = await User.findById(stream.user_id);
+  if (!user || !user.youtube_client_id || !user.youtube_client_secret) {
+    throw new Error('YouTube API credentials not configured');
+  }
+
+  const selectedChannel = await YoutubeChannel.findById(stream.youtube_channel_id);
+  if (!selectedChannel || !selectedChannel.access_token || !selectedChannel.refresh_token) {
+    throw new Error('YouTube channel not found or not connected');
+  }
+
+  const clientSecret = decrypt(user.youtube_client_secret);
+  const accessToken = decrypt(selectedChannel.access_token);
+  const refreshToken = decrypt(selectedChannel.refresh_token);
+
+  if (!clientSecret || !accessToken) {
+    throw new Error('Failed to decrypt YouTube credentials');
+  }
+
+  const redirectUri = `${baseUrl}/auth/youtube/callback`;
+  const oauth2Client = getYouTubeOAuth2Client(user.youtube_client_id, clientSecret, redirectUri);
+  oauth2Client.setCredentials({
+    access_token: accessToken,
+    refresh_token: refreshToken
+  });
+
+  oauth2Client.on('tokens', async (tokens) => {
+    if (tokens.access_token) {
+      await YoutubeChannel.update(selectedChannel.id, {
+        access_token: encrypt(tokens.access_token)
+      });
+    }
+    if (tokens.refresh_token) {
+      await YoutubeChannel.update(selectedChannel.id, {
+        refresh_token: encrypt(tokens.refresh_token)
+      });
+    }
+  });
+
+  const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+
+  try {
+    // First, transition the broadcast to 'complete' if it's still live
+    try {
+      await youtube.liveBroadcasts.transition({
+        part: 'status',
+        id: stream.youtube_broadcast_id,
+        broadcastStatus: 'complete'
+      });
+      console.log(`[YouTubeService] Transitioned broadcast ${stream.youtube_broadcast_id} to complete`);
+      // Wait a few seconds for YouTube to finish processing the broadcast
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    } catch (transitionError) {
+      // If transition fails (e.g., already complete), continue to privacy update
+      console.warn(`[YouTubeService] Broadcast transition warning (may already be complete): ${transitionError.message}`);
+    }
+
+    // Now update privacy to unlisted
+    await youtube.videos.update({
+      part: 'status',
+      requestBody: {
+        id: stream.youtube_broadcast_id,
+        status: {
+          privacyStatus: 'unlisted'
+        }
+      }
+    });
+    console.log(`[YouTubeService] Set broadcast ${stream.youtube_broadcast_id} to unlisted`);
+    return { success: true };
+  } catch (error) {
+    console.error(`[YouTubeService] Failed to unlist broadcast ${stream.youtube_broadcast_id}:`, error.message);
+    return { success: false, error: error.message };
+  }
+}
+
 module.exports = {
   createYouTubeBroadcast,
   deleteYouTubeBroadcast,
   getYouTubeOAuth2Client,
-  syncBroadcastMonetization
+  syncBroadcastMonetization,
+  unlistYouTubeBroadcast
 };
