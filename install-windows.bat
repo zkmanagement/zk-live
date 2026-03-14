@@ -109,7 +109,7 @@ if exist "%INSTALL_DIR%" (
     git pull origin main
 ) else (
     echo  [INFO] Clone repo StreamFlow...
-    git clone https://github.com/zkmanagement/streamflow.git "%INSTALL_DIR%"
+    git clone https://github.com/zkmanagement/zk-live.git "%INSTALL_DIR%"
     echo  [OK] Clone selesai!
 )
 
