@@ -123,13 +123,28 @@ if not exist ".env" (
     if exist ".env.example" (
         copy .env.example .env
         echo  [OK] File .env dibuat dari .env.example
-        echo  [WARN] Silakan edit file .env sesuai kebutuhan sebelum menjalankan app!
     ) else (
-        echo  [WARN] File .env.example tidak ditemukan, buat .env secara manual
+        echo  SESSION_SECRET=placeholder > .env
+        echo  [WARN] File .env.example tidak ditemukan, .env dibuat minimal
     )
 ) else (
     echo  [OK] File .env sudah ada, skip...
 )
+
+:: Auto-generate SESSION_SECRET yang aman dan masukkan ke .env
+echo  [INFO] Generate SESSION_SECRET...
+for /f "delims=" %%S in ('node -e "process.stdout.write(require('crypto').randomBytes(64).toString('hex'))"') do set SESSION_SECRET=%%S
+
+:: Cek apakah SESSION_SECRET sudah ada di .env, kalau ada replace, kalau tidak ada tambahkan
+findstr /C:"SESSION_SECRET" .env >nul 2>&1
+if %errorLevel% EQU 0 (
+    :: Replace baris yang ada
+    powershell -Command "(Get-Content .env) -replace '^SESSION_SECRET=.*', 'SESSION_SECRET=%SESSION_SECRET%' | Set-Content .env"
+) else (
+    :: Tambahkan di akhir file
+    echo SESSION_SECRET=%SESSION_SECRET% >> .env
+)
+echo  [OK] SESSION_SECRET berhasil di-generate dan disimpan ke .env!
 
 :: Tampilkan IP server
 echo.
