@@ -33,6 +33,11 @@
         data-tab="about">
         <i class="ti ti-info-circle mr-2"></i>About
       </button>
+      <button
+        class="settings-tab mr-2 py-2 px-4 text-gray-400 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600 font-medium"
+        data-tab="migration">
+        <i class="ti ti-server-2 mr-2"></i>Migration
+      </button>
     </div>
   </div>
   
@@ -534,6 +539,78 @@
       </div>
     </div>
 
+    <div id="migration-tab" class="settings-content hidden">
+      <div class="space-y-6 max-w-2xl">
+
+        <!-- EXPORT -->
+        <div class="bg-gray-800 rounded-lg p-6">
+          <h3 class="text-lg font-semibold mb-2 flex items-center gap-2"><i class="ti ti-download text-green-400"></i> Export / Backup</h3>
+          <p class="text-sm text-gray-400 mb-4">Download a <code class="bg-dark-900 px-1.5 py-0.5 rounded text-xs">.zip</code> backup containing your database and config. Use this to migrate everything to a new RDP.</p>
+          <div class="bg-green-900/20 border border-green-700/50 rounded-lg p-4 mb-5">
+            <div class="flex items-start gap-3">
+              <i class="ti ti-info-circle text-green-400 text-xl flex-shrink-0 mt-0.5"></i>
+              <div class="text-sm text-green-300">
+                <p class="font-medium mb-1">What is included in the backup?</p>
+                <ul class="list-disc list-inside space-y-1 text-gray-400">
+                  <li><strong class="text-white">db/streamflow.db</strong> — All rotations, schedules, users, playlists, stream configs</li>
+                  <li><strong class="text-white">.env</strong> — Session secret & environment configuration</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <button id="export-backup-btn"
+            class="inline-flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium">
+            <i class="ti ti-download"></i> Download Backup
+          </button>
+          <p id="export-status" class="mt-3 text-sm text-gray-400 hidden"></p>
+        </div>
+
+        <!-- IMPORT -->
+        <div class="bg-gray-800 rounded-lg p-6">
+          <h3 class="text-lg font-semibold mb-2 flex items-center gap-2"><i class="ti ti-upload text-blue-400"></i> Import / Restore</h3>
+          <p class="text-sm text-gray-400 mb-4">Upload a previously exported backup <code class="bg-dark-900 px-1.5 py-0.5 rounded text-xs">.zip</code> file to restore all settings to this server.</p>
+
+          <div class="bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-4 mb-5">
+            <div class="flex items-start gap-3">
+              <i class="ti ti-alert-triangle text-yellow-400 text-xl flex-shrink-0 mt-0.5"></i>
+              <div class="text-sm">
+                <p class="text-yellow-300 font-medium mb-1">Warning — This will overwrite current data!</p>
+                <ul class="list-disc list-inside space-y-1 text-gray-400">
+                  <li>Current database will be replaced with the imported one</li>
+                  <li>A <code>.bak</code> copy of your current db is automatically saved before overwriting</li>
+                  <li>After import, you <strong class="text-white">MUST restart</strong> the app for changes to apply</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div id="import-drop-zone"
+            class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors mb-4">
+            <i class="ti ti-file-zip text-3xl text-gray-400 mb-2 block"></i>
+            <p class="text-gray-300 font-medium">Click to select or drop your <code class="bg-dark-900 px-1.5 rounded">.zip</code> backup</p>
+            <p id="import-file-name" class="text-sm text-gray-500 mt-1">No file selected</p>
+            <input type="file" id="import-file-input" accept=".zip" class="hidden">
+          </div>
+
+          <button id="import-backup-btn" disabled
+            class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed">
+            <i class="ti ti-upload"></i> Import Backup
+          </button>
+
+          <div id="import-restart-notice" class="hidden mt-5 bg-red-900/30 border border-red-700/60 rounded-lg p-4">
+            <div class="flex items-start gap-3">
+              <i class="ti ti-refresh-alert text-red-400 text-2xl flex-shrink-0"></i>
+              <div>
+                <p class="font-semibold text-red-300 mb-1">Import Successful — Restart Required!</p>
+                <p class="text-sm text-gray-300">Your backup has been applied. <strong>Please restart the StreamFlow app</strong> (stop Node.js process and run <code class="bg-dark-900 px-1.5 rounded text-xs">npm start</code> again) for the new settings to take full effect.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
   </div>
   
   <style>
@@ -608,7 +685,7 @@
         });
       });
       const hashTab = window.location.hash.replace('#', '');
-      const validTabs = ['profile', 'security', 'integration', 'logs', 'about'];
+      const validTabs = ['profile', 'security', 'integration', 'logs', 'about', 'migration'];
       if (hashTab && validTabs.includes(hashTab)) {
         activateTab(hashTab);
       } else {
@@ -1176,4 +1253,117 @@
   if (window.location.hash === '#about') {
     loadContributors();
   }
+
+  // ============================================================
+  //  MIGRATION - EXPORT & IMPORT
+  // ============================================================
+  const exportBtn = document.getElementById('export-backup-btn');
+  const exportStatus = document.getElementById('export-status');
+  if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
+      exportStatus.textContent = 'Preparing backup...';
+      exportStatus.classList.remove('hidden');
+      exportBtn.disabled = true;
+      exportBtn.innerHTML = '<i class="ti ti-loader animate-spin"></i> Preparing...';
+
+      // Trigger download via a temp link
+      const a = document.createElement('a');
+      a.href = '/api/migration/export';
+      a.download = '';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      setTimeout(() => {
+        exportBtn.disabled = false;
+        exportBtn.innerHTML = '<i class="ti ti-download"></i> Download Backup';
+        exportStatus.textContent = 'Backup download started!';
+      }, 2000);
+    });
+  }
+
+  const importDropZone = document.getElementById('import-drop-zone');
+  const importFileInput = document.getElementById('import-file-input');
+  const importFileName = document.getElementById('import-file-name');
+  const importBtn = document.getElementById('import-backup-btn');
+  const importRestartNotice = document.getElementById('import-restart-notice');
+  let selectedImportFile = null;
+
+  if (importDropZone) {
+    importDropZone.addEventListener('click', () => importFileInput.click());
+
+    importDropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      importDropZone.classList.add('border-blue-500');
+    });
+
+    importDropZone.addEventListener('dragleave', () => {
+      importDropZone.classList.remove('border-blue-500');
+    });
+
+    importDropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      importDropZone.classList.remove('border-blue-500');
+      const file = e.dataTransfer.files[0];
+      if (file) handleImportFileSelect(file);
+    });
+
+    importFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) handleImportFileSelect(file);
+    });
+  }
+
+  function handleImportFileSelect(file) {
+    if (!file.name.endsWith('.zip')) {
+      showToast('error', 'Only .zip backup files are accepted.');
+      return;
+    }
+    selectedImportFile = file;
+    importFileName.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+    importFileName.classList.add('text-green-400');
+    importBtn.disabled = false;
+  }
+
+  if (importBtn) {
+    importBtn.addEventListener('click', async () => {
+      if (!selectedImportFile) return;
+
+      const confirmed = confirm(
+        '⚠️ WARNING: Importing this backup will OVERWRITE your current database and settings.\n\nA .bak copy will be saved automatically before overwriting.\n\nAre you absolutely sure you want to continue?'
+      );
+      if (!confirmed) return;
+
+      importBtn.disabled = true;
+      importBtn.innerHTML = '<i class="ti ti-loader animate-spin"></i> Importing...';
+
+      try {
+        const formData = new FormData();
+        formData.append('backupFile', selectedImportFile);
+
+        const response = await fetch('/api/migration/import', {
+          method: 'POST',
+          headers: { 'X-CSRF-Token': '<%= csrfToken %>' },
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          showToast('success', 'Backup imported! Restart app to apply.');
+          importRestartNotice.classList.remove('hidden');
+          importBtn.innerHTML = '<i class="ti ti-check"></i> Imported!';
+        } else {
+          showToast('error', data.error || 'Import failed.');
+          importBtn.disabled = false;
+          importBtn.innerHTML = '<i class="ti ti-upload"></i> Import Backup';
+        }
+      } catch (err) {
+        showToast('error', 'Network error during import.');
+        importBtn.disabled = false;
+        importBtn.innerHTML = '<i class="ti ti-upload"></i> Import Backup';
+      }
+    });
+  }
+
   </script>

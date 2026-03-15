@@ -2530,6 +2530,92 @@ app.delete('/api/settings/youtube-channel/:id', isAuthenticated, async (req, res
   }
 });
 
+// ============================================================
+//  MIGRATION - EXPORT & IMPORT
+// ============================================================
+const AdmZip = require('adm-zip');
+const multerMemory = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } }); // 100MB max
+
+app.get('/api/migration/export', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const zip = new AdmZip();
+    const dbPath = path.join(__dirname, 'db', 'streamflow.db');
+    const envPath = path.join(__dirname, '.env');
+
+    if (fs.existsSync(dbPath)) {
+      zip.addLocalFile(dbPath, 'db');
+    } else {
+      return res.status(404).json({ success: false, error: 'Database file not found.' });
+    }
+
+    if (fs.existsSync(envPath)) {
+      zip.addLocalFile(envPath, '');
+    }
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const fileName = `streamflow-backup-${timestamp}.zip`;
+    const zipBuffer = zip.toBuffer();
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Length', zipBuffer.length);
+    res.end(zipBuffer);
+
+  } catch (error) {
+    console.error('Export error:', error);
+    res.status(500).json({ success: false, error: 'Failed to create backup.' });
+  }
+});
+
+app.post('/api/migration/import', isAuthenticated, isAdmin, multerMemory.single('backupFile'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No backup file uploaded.' });
+    }
+    if (!req.file.originalname.endsWith('.zip')) {
+      return res.status(400).json({ success: false, error: 'Only .zip files are accepted.' });
+    }
+
+    const zip = new AdmZip(req.file.buffer);
+    const entries = zip.getEntries();
+
+    const dbEntry = entries.find(e => e.entryName === 'db/streamflow.db');
+    const envEntry = entries.find(e => e.entryName === '.env');
+
+    if (!dbEntry) {
+      return res.status(400).json({ success: false, error: 'Invalid backup file: db/streamflow.db not found inside zip.' });
+    }
+
+    // Write new db
+    const dbDestPath = path.join(__dirname, 'db', 'streamflow.db');
+    const dbBackupPath = path.join(__dirname, 'db', `streamflow.db.bak-${Date.now()}`);
+    if (fs.existsSync(dbDestPath)) {
+      fs.copyFileSync(dbDestPath, dbBackupPath);
+    }
+    fs.writeFileSync(dbDestPath, dbEntry.getData());
+
+    // Write new .env if present
+    if (envEntry) {
+      const envDestPath = path.join(__dirname, '.env');
+      const envBackupPath = path.join(__dirname, `.env.bak-${Date.now()}`);
+      if (fs.existsSync(envDestPath)) {
+        fs.copyFileSync(envDestPath, envBackupPath);
+      }
+      fs.writeFileSync(envDestPath, envEntry.getData());
+    }
+
+    res.json({
+      success: true,
+      message: 'Backup imported successfully! Please RESTART the application now for all changes to take effect.',
+      requiresRestart: true
+    });
+
+  } catch (error) {
+    console.error('Import error:', error);
+    res.status(500).json({ success: false, error: 'Failed to import backup: ' + error.message });
+  }
+});
+
 const { google } = require('googleapis');
 
 function getYouTubeOAuth2Client(clientId, clientSecret, redirectUri) {
