@@ -35,7 +35,11 @@ function formatDuration(seconds) {
       <span id="diskUsageTextMobile"></span>
     </p>
   </div>
-  <div class="flex gap-3">
+  <div class="flex gap-3 flex-wrap">
+    <button id="scanImportBtn" onclick="scanAndImportVideos()" class="flex items-center gap-2 bg-dark-700 border border-gray-600 hover:bg-dark-600 text-white px-4 py-2 rounded-lg transition-colors" title="Scan folder dan import video yang di-copy manual">
+      <i class="ti ti-file-import"></i>
+      <span>Scan & Import</span>
+    </button>
     <button onclick="openUploadModal()" class="flex items-center gap-2 bg-primary hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
       <i class="ti ti-upload"></i>
       <span>Upload Media</span>
@@ -67,6 +71,7 @@ function formatDuration(seconds) {
     </div>
   </div>
 </div>
+
 
 <div class="space-y-4 mb-6">
   <div class="flex items-center gap-2 text-sm text-gray-400">
@@ -428,6 +433,59 @@ const currentFolderId = <%- JSON.stringify(currentFolderId || '') %>;
 let galleryVideosState = <%- JSON.stringify(videos || []) %>;
 let galleryFoldersState = <%- JSON.stringify(folders || []) %>;
 let galleryCurrentFolderState = <%- JSON.stringify(currentFolder || null) %>;
+
+async function scanAndImportVideos() {
+  const btn = document.getElementById('scanImportBtn');
+  const originalText = btn.innerHTML;
+  
+  try {
+    // Show loading state
+    btn.innerHTML = '<i class="ti ti-loader animate-spin"></i><span>Scanning...</span>';
+    btn.disabled = true;
+    btn.classList.add('opacity-75', 'cursor-not-allowed');
+
+    const response = await fetch('/api/videos/scan-import', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': document.querySelector('input[name="_csrf"]')?.value || ''
+      }
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      if (data.imported > 0) {
+        showToast('success', data.message);
+        // Refresh the gallery automatically to show new videos
+        if (typeof window.refreshGalleryData === 'function') {
+          await window.refreshGalleryData();
+        } else {
+          window.location.reload();
+        }
+      } else {
+        showToast('info', data.message);
+      }
+      
+      if (data.errors && data.errors.length > 0) {
+        console.warn('Failed to import some files:', data.errors);
+        setTimeout(() => {
+          showToast('warning', `Gagal import ${data.errors.length} file (cek console).`);
+        }, 3000); // Tampilkan warning setelah pesan sukses/info hilang
+      }
+    } else {
+      showToast('error', data.error || 'Terjadi kesalahan saat scanning folder');
+    }
+  } catch (error) {
+    console.error('Scan & Import error:', error);
+    showToast('error', 'Koneksi ke server gagal.');
+  } finally {
+    // Restore button state
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+    btn.classList.remove('opacity-75', 'cursor-not-allowed');
+  }
+}
 
 async function loadDiskUsage() {
   try {

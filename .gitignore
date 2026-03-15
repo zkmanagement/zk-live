@@ -6,3 +6,10 @@ logs/
 .env
 package-lock.json
 db/streamflow.db
+
+# Windows system files
+desktop.ini
+Desktop.ini
+Thumbs.db
+ehthumbs.db
+$RECYCLE.BIN/

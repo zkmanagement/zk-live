@@ -832,6 +832,105 @@ app.get('/api/gallery/data', isAuthenticated, async (req, res) => {
   }
 });
 
+app.post('/api/videos/scan-import', isAuthenticated, async (req, res) => {
+  try {
+    const VIDEOS_DIR = path.join(__dirname, 'public', 'uploads', 'videos');
+    const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.flv', '.ts', '.m4v'];
+
+    // Get all files in the videos directory
+    if (!fs.existsSync(VIDEOS_DIR)) {
+      return res.json({ success: true, imported: 0, skipped: 0, message: 'Videos folder not found.' });
+    }
+
+    const allFiles = fs.readdirSync(VIDEOS_DIR).filter(f => {
+      const ext = path.extname(f).toLowerCase();
+      return VIDEO_EXTENSIONS.includes(ext) && fs.statSync(path.join(VIDEOS_DIR, f)).isFile();
+    });
+
+    if (allFiles.length === 0) {
+      return res.json({ success: true, imported: 0, skipped: 0, message: 'No video files found in the folder.' });
+    }
+
+    // Get all existing video filepaths from DB for this user
+    const existingVideos = await Video.findAll(req.session.userId);
+    const existingPaths = new Set(existingVideos.map(v => v.filepath));
+
+    let importedCount = 0;
+    let skippedCount = 0;
+    const errors = [];
+
+    for (const filename of allFiles) {
+      const relPath = `/uploads/videos/${filename}`;
+      if (existingPaths.has(relPath)) {
+        skippedCount++;
+        continue;
+      }
+
+      const fullPath = path.join(VIDEOS_DIR, filename);
+      try {
+        // Get video metadata
+        let duration = null;
+        let fileSize = null;
+        try {
+          const info = await getVideoInfo(fullPath);
+          duration = info.duration;
+          fileSize = info.fileSize;
+        } catch (e) {
+          const stat = fs.statSync(fullPath);
+          fileSize = stat.size;
+        }
+
+        // Generate thumbnail
+        let thumbnailPath = '/images/default-thumbnail.jpg';
+        try {
+          const thumbName = `thumb-${Date.now()}-${Math.floor(Math.random() * 100000)}.jpg`;
+          await generateThumbnail(fullPath, thumbName);
+          thumbnailPath = `/uploads/thumbnails/${thumbName}`;
+        } catch (e) {
+          console.warn(`[scan-import] Could not generate thumbnail for ${filename}:`, e.message);
+        }
+
+        // Build a clean title from filename
+        const ext = path.extname(filename);
+        const rawTitle = path.basename(filename, ext).replace(/[-_]/g, ' ');
+
+        await Video.create({
+          title: rawTitle,
+          filepath: relPath,
+          thumbnail_path: thumbnailPath,
+          file_size: fileSize,
+          duration: duration,
+          format: ext.replace('.', '').toUpperCase(),
+          resolution: null,
+          bitrate: null,
+          fps: null,
+          user_id: req.session.userId,
+          folder_id: null
+        });
+
+        importedCount++;
+      } catch (err) {
+        console.error(`[scan-import] Error importing ${filename}:`, err.message);
+        errors.push(filename);
+      }
+    }
+
+    let message;
+    if (importedCount === 0 && skippedCount > 0) {
+      message = `Semua ${skippedCount} video sudah terdaftar di galeri.`;
+    } else if (importedCount > 0) {
+      message = `Berhasil mengimport ${importedCount} video!${skippedCount > 0 ? ` (${skippedCount} sudah ada)` : ''}`;
+    } else {
+      message = 'Tidak ada video baru yang ditemukan.';
+    }
+
+    res.json({ success: true, imported: importedCount, skipped: skippedCount, errors, message });
+  } catch (error) {
+    console.error('[scan-import] Error:', error);
+    res.status(500).json({ success: false, error: 'Gagal melakukan scan folder.' });
+  }
+});
+
 app.post('/api/media-folders', isAuthenticated, [
   body('name').trim().notEmpty().withMessage('Folder name is required').isLength({ max: 80 }).withMessage('Folder name is too long')
 ], async (req, res) => {
