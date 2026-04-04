@@ -97,7 +97,15 @@ class Rotation {
     });
   }
 
-  static findAll(userId) {
+  static findAll(userId, sort = 'created_desc') {
+    const sortMap = {
+      'created_desc': 'r.created_at DESC',
+      'created_asc': 'r.created_at ASC',
+      'channel_asc': 'LOWER(yc.channel_name) ASC, r.created_at DESC',
+      'start_time_asc': 'r.start_time ASC, r.created_at DESC',
+    };
+    const orderBy = sortMap[sort] || sortMap['created_desc'];
+
     return new Promise((resolve, reject) => {
       db.all(
         `SELECT r.*, 
@@ -112,7 +120,7 @@ class Rotation {
          FROM stream_rotations r
          LEFT JOIN youtube_channels yc ON r.youtube_channel_id = yc.id
          WHERE r.user_id = ?
-         ORDER BY r.created_at DESC`,
+         ORDER BY ${orderBy}`,
         [userId],
         (err, rows) => {
           if (err) {

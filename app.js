@@ -4519,7 +4519,9 @@ app.get('/rotations', isAuthenticated, async (req, res) => {
       return true;
     });
     const playlists = await Playlist.findAll(req.session.userId);
-    const rotations = await Rotation.findAll(req.session.userId);
+    const validSorts = ['created_desc', 'created_asc', 'channel_asc', 'start_time_asc'];
+    const sort = validSorts.includes(req.query.sort) ? req.query.sort : 'created_desc';
+    const rotations = await Rotation.findAll(req.session.userId, sort);
     const YoutubeChannel = require('./models/YoutubeChannel');
     const youtubeChannels = await YoutubeChannel.findAll(req.session.userId);
     const isYoutubeConnected = youtubeChannels.length > 0;
@@ -4536,7 +4538,8 @@ app.get('/rotations', isAuthenticated, async (req, res) => {
       youtubeChannels: youtubeChannels,
       youtubeChannelName: defaultChannel?.channel_name || '',
       youtubeChannelThumbnail: defaultChannel?.channel_thumbnail || '',
-      youtubeSubscriberCount: defaultChannel?.subscriber_count || '0'
+      youtubeSubscriberCount: defaultChannel?.subscriber_count || '0',
+      currentSort: sort
     });
   } catch (error) {
     console.error('Rotations page error:', error);
